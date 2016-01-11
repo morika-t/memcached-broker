@@ -1,0 +1,6 @@
+#!/bin/bash
+
+(
+  cd $(dirname $0)/../
+  goagen app --design github.com/tscolari/cf-broker-api/design
+)

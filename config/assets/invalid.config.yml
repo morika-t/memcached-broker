@@ -1,0 +1,24 @@
+---
+catalog:
+services:
+- id: my-service-id
+name: memcached
+description: in memory keystore
+bindable: true
+metadata:
+what: about
+plan_updatable: true
+plans:
+- id: first-plan-id
+name: 100mb
+description: shared 100mb memory limit
+free: true
+- id: second-plan-id
+name: 1024mb
+description: shared 1024mb memory limit
+free: false
+dasboard_client:
+id: id-1-1-1
+secret: secret-2-2-2
+redirect_url: 127.0.0.1/here
+
