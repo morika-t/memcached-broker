@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/tscolari/cf-broker-api/common/objects"
+	"github.com/tscolari/memcached-broker/app"
 	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	Catalog objects.Catalog `yaml:"catalog"`
+	Catalog app.CfbrokerCatalog `yaml:"catalog"`
 }
 
 func Load(filePath string) (Config, error) {

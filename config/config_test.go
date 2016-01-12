@@ -45,7 +45,7 @@ catalog:
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(config.Catalog.Services)).To(Equal(1))
-			Expect(config.Catalog.Services[0].Id).To(Equal("service-id"))
+			Expect(config.Catalog.Services[0].ID).To(Equal("service-id"))
 		})
 
 		Context("when the data is not a valid yaml", func() {
