@@ -1,5 +1,5 @@
-build: app
+build: generate
 	go build
 
-app:
+generate:
 	./scripts/generate-app
