@@ -9,7 +9,8 @@ import (
 )
 
 type Config struct {
-	Catalog app.CfbrokerCatalog `yaml:"catalog"`
+	Catalog   app.CfbrokerCatalog `yaml:"catalog"`
+	StateFile string              `yaml:"state_file"`
 }
 
 func Load(filePath string) (Config, error) {
