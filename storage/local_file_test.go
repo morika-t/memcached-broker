@@ -50,7 +50,7 @@ var _ = Describe("LocalFile", func() {
 		It("saves the current state to a file", func() {
 			originalState := config.State{
 				Capacity:  100,
-				Instances: []config.Instance{},
+				Instances: map[string]config.Instance{},
 			}
 			localFile.PutState(originalState)
 			err := localFile.Save()
@@ -70,7 +70,7 @@ var _ = Describe("LocalFile", func() {
 
 			originalState := config.State{
 				Capacity:  100,
-				Instances: []config.Instance{},
+				Instances: map[string]config.Instance{},
 			}
 			localFile.PutState(originalState)
 			err = localFile.Save()

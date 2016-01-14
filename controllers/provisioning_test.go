@@ -7,8 +7,9 @@ import (
 
 	"github.com/raphael/goa"
 	"github.com/tscolari/memcached-broker/app"
+	"github.com/tscolari/memcached-broker/config"
 	"github.com/tscolari/memcached-broker/controllers"
-	"github.com/tscolari/memcached-broker/storage"
+	"github.com/tscolari/memcached-broker/storage/fakes"
 	"golang.org/x/net/context"
 
 	. "github.com/onsi/ginkgo"
@@ -17,10 +18,11 @@ import (
 
 var _ = Describe("Provisioning", func() {
 	var provisioningController *controllers.Provisioning
-	var storage storage.Storage
+	var storage *fakes.FakeStorage
 
 	BeforeEach(func() {
-		provisioningController = controllers.NewProvisioning(&storage)
+		storage = new(fakes.FakeStorage)
+		provisioningController = controllers.NewProvisioning(storage)
 	})
 
 	Describe("#Create", func() {
@@ -41,15 +43,72 @@ var _ = Describe("Provisioning", func() {
 			provisioningContext, err = app.NewCreateProvisioningContext(goaContext)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = provisioningController.Create(provisioningContext)
-			Expect(err).ToNot(HaveOccurred())
+			provisioningContext.InstanceId = "some-instance-id"
 		})
 
-		It("responds with 201", func() {
-			Expect(goaContext.ResponseStatus()).To(Equal(201))
+		Context("when all goes ok", func() {
+			BeforeEach(func() {
+				state := config.State{
+					Capacity:  1,
+					Instances: map[string]config.Instance{},
+				}
+
+				storage.GetStateReturns(state)
+				err := provisioningController.Create(provisioningContext)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("responds with 201", func() {
+				Expect(goaContext.ResponseStatus()).To(Equal(201))
+			})
+
+			It("updates the state file", func() {
+				Expect(storage.PutStateCallCount()).To(Equal(1))
+				Expect(storage.SaveCallCount()).To(Equal(1))
+
+				receivedState := storage.PutStateArgsForCall(0)
+				Expect(receivedState).To(Equal(config.State{
+					Capacity: 0,
+					Instances: map[string]config.Instance{
+						"some-instance-id": config.Instance{},
+					},
+				}))
+			})
 		})
 
-		It("updates the state file", func() {
+		Context("when the instance id already exists", func() {
+			BeforeEach(func() {
+				state := config.State{
+					Capacity: 1,
+					Instances: map[string]config.Instance{
+						"some-instance-id": config.Instance{},
+					},
+				}
+
+				storage.GetStateReturns(state)
+				err := provisioningController.Create(provisioningContext)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("responds with 409", func() {
+				Expect(goaContext.ResponseStatus()).To(Equal(409))
+			})
+		})
+
+		Context("when there's no capacity", func() {
+			BeforeEach(func() {
+				state := config.State{
+					Capacity: 0,
+				}
+
+				storage.GetStateReturns(state)
+				err := provisioningController.Create(provisioningContext)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("responds with 503", func() {
+				Expect(goaContext.ResponseStatus()).To(Equal(503))
+			})
 		})
 	})
 })

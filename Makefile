@@ -3,3 +3,7 @@ build: generate
 
 generate:
 	./scripts/generate-app
+	counterfeiter storage Storage
+
+test: generate
+	ginkgo -r
