@@ -4,27 +4,27 @@ import (
 	"github.com/raphael/goa"
 	"github.com/raphael/goa/examples/cellar/swagger"
 	commoncontrollers "github.com/tscolari/cf-broker-api/common/controllers"
-	"github.com/tscolari/cf-broker-api/common/storage"
 	"github.com/tscolari/memcached-broker/app"
 	"github.com/tscolari/memcached-broker/config"
 	"github.com/tscolari/memcached-broker/controllers"
+	"github.com/tscolari/memcached-broker/storage"
 )
 
 func main() {
 	service := goa.New("cfbroker")
-	config, err := config.Load("./config.yaml")
+	configuration, err := config.Load("./config.yaml")
 	if err != nil {
 		panic(err)
 	}
 
-	stateFile, err := storage.NewYamlFile(config.StateFile)
+	store, err := storage.NewLocalFile("/tmp/data")
 	if err != nil {
 		panic(err)
 	}
 
-	provisioningController := controllers.NewProvisioning(stateFile)
+	provisioningController := controllers.NewProvisioning(store)
+	catalogController := commoncontrollers.NewCatalog(configuration.Catalog)
 
-	catalogController := commoncontrollers.NewCatalog(config.Catalog)
 	app.MountCatalogController(service, catalogController)
 	app.MountProvisioningController(service, provisioningController)
 
