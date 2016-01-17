@@ -29,7 +29,12 @@ func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
 		return ctx.Conflict()
 	}
 
-	instance := config.Instance{}
+	instance := config.Instance{
+		ServiceID:      ctx.ServiceId,
+		PlanID:         ctx.PlanId,
+		OrganizationID: ctx.OrganizationId,
+		SpaceID:        ctx.SpaceId,
+	}
 
 	state.Instances[ctx.InstanceId] = instance
 	state.Capacity = state.Capacity - 1
@@ -37,4 +42,40 @@ func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
 	p.storage.Save()
 
 	return ctx.Created()
+}
+
+func (p *Provisioning) Update(ctx *app.UpdateProvisioningContext) error {
+	var instance config.Instance
+	var exists bool
+	state := p.storage.GetState()
+
+	if instance, exists = state.Instances[ctx.InstanceId]; !exists {
+		return ctx.NotFound()
+	}
+
+	instance.ServiceID = ctx.ServiceId
+	instance.PlanID = ctx.PlanId
+
+	state.Instances[ctx.InstanceId] = instance
+	p.storage.PutState(state)
+	p.storage.Save()
+
+	return ctx.OK(&app.CfbrokerDashboard{})
+}
+
+func (p *Provisioning) Delete(ctx *app.DeleteProvisioningContext) error {
+	var exists bool
+	state := p.storage.GetState()
+
+	if _, exists = state.Instances[ctx.InstanceId]; !exists {
+		return ctx.NotFound()
+	}
+
+	state.Capacity++
+	delete(state.Instances, ctx.InstanceId)
+
+	p.storage.PutState(state)
+	p.storage.Save()
+
+	return ctx.OK(&app.CfbrokerDashboard{})
 }
