@@ -247,8 +247,8 @@ var _ = Describe("Provisioning", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("responds with 404", func() {
-				Expect(goaContext.ResponseStatus()).To(Equal(404))
+			It("responds with 410", func() {
+				Expect(goaContext.ResponseStatus()).To(Equal(410))
 			})
 		})
 	})

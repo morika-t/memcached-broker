@@ -68,7 +68,7 @@ func (p *Provisioning) Delete(ctx *app.DeleteProvisioningContext) error {
 	state := p.storage.GetState()
 
 	if _, exists = state.Instances[ctx.InstanceId]; !exists {
-		return ctx.NotFound()
+		return ctx.Gone()
 	}
 
 	state.Capacity++
