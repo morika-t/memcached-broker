@@ -21,11 +21,7 @@ func NewProvisioning(storage storage.Storage) *Provisioning {
 func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
 	state := p.storage.GetState()
 
-	if state.Capacity <= 0 {
-		return ctx.ServiceUnavailable()
-	}
-
-	if _, exists := state.Instances[ctx.InstanceId]; exists {
+	if state.InstanceExists(ctx.InstanceId) {
 		return ctx.Conflict()
 	}
 
@@ -36,8 +32,11 @@ func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
 		SpaceID:        ctx.SpaceId,
 	}
 
-	state.Instances[ctx.InstanceId] = instance
-	state.Capacity = state.Capacity - 1
+	err := state.AddInstance(ctx.InstanceId, instance)
+	if err != nil {
+		return ctx.ServiceUnavailable()
+	}
+
 	p.storage.PutState(state)
 	p.storage.Save()
 
@@ -45,18 +44,17 @@ func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
 }
 
 func (p *Provisioning) Update(ctx *app.UpdateProvisioningContext) error {
-	var instance config.Instance
-	var exists bool
 	state := p.storage.GetState()
 
-	if instance, exists = state.Instances[ctx.InstanceId]; !exists {
+	instance, err := state.Instance(ctx.InstanceId)
+	if err != nil {
 		return ctx.NotFound()
 	}
 
 	instance.ServiceID = ctx.ServiceId
 	instance.PlanID = ctx.PlanId
 
-	state.Instances[ctx.InstanceId] = instance
+	state.UpdateInstance(ctx.InstanceId, *instance)
 	p.storage.PutState(state)
 	p.storage.Save()
 
@@ -64,15 +62,16 @@ func (p *Provisioning) Update(ctx *app.UpdateProvisioningContext) error {
 }
 
 func (p *Provisioning) Delete(ctx *app.DeleteProvisioningContext) error {
-	var exists bool
 	state := p.storage.GetState()
 
-	if _, exists = state.Instances[ctx.InstanceId]; !exists {
+	if !state.InstanceExists(ctx.InstanceId) {
 		return ctx.Gone()
 	}
 
-	state.Capacity++
-	delete(state.Instances, ctx.InstanceId)
+	err := state.DeleteInstance(ctx.InstanceId)
+	if err != nil {
+		return ctx.Gone()
+	}
 
 	p.storage.PutState(state)
 	p.storage.Save()
