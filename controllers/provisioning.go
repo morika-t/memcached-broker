@@ -26,13 +26,14 @@ func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
 	}
 
 	instance := config.Instance{
+		ID:             ctx.InstanceId,
 		ServiceID:      ctx.ServiceId,
 		PlanID:         ctx.PlanId,
 		OrganizationID: ctx.OrganizationId,
 		SpaceID:        ctx.SpaceId,
 	}
 
-	err := state.AddInstance(ctx.InstanceId, instance)
+	err := state.AddInstance(instance)
 	if err != nil {
 		return ctx.ServiceUnavailable()
 	}
@@ -54,7 +55,7 @@ func (p *Provisioning) Update(ctx *app.UpdateProvisioningContext) error {
 	instance.ServiceID = ctx.ServiceId
 	instance.PlanID = ctx.PlanId
 
-	state.UpdateInstance(ctx.InstanceId, *instance)
+	state.UpdateInstance(*instance)
 	p.storage.PutState(state)
 	p.storage.Save()
 

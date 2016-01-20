@@ -75,6 +75,7 @@ var _ = Describe("Provisioning", func() {
 					Capacity: 0,
 					Instances: map[string]config.Instance{
 						"some-instance-id": config.Instance{
+							ID:             "some-instance-id",
 							ServiceID:      "service-1",
 							PlanID:         "plan-1",
 							OrganizationID: "org-1",
@@ -138,6 +139,7 @@ var _ = Describe("Provisioning", func() {
 					Capacity: 0,
 					Instances: map[string]config.Instance{
 						"some-instance-id": config.Instance{
+							ID:             "some-instance-id",
 							ServiceID:      "service-1",
 							PlanID:         "plan-1",
 							OrganizationID: "org-1",
@@ -166,6 +168,7 @@ var _ = Describe("Provisioning", func() {
 					Capacity: 0,
 					Instances: map[string]config.Instance{
 						"some-instance-id": config.Instance{
+							ID:             "some-instance-id",
 							ServiceID:      "service-2",
 							PlanID:         "plan-2",
 							OrganizationID: "org-1",

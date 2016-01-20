@@ -56,11 +56,12 @@ var _ = Describe("State", func() {
 	Describe("AddInstance", func() {
 		It("adds the instance to the state", func() {
 			instance := config.Instance{
+				ID:   "instance-id",
 				Host: "127.0.0.1",
 				Port: "11111",
 			}
 
-			err := state.AddInstance("instance-id", instance)
+			err := state.AddInstance(instance)
 			Expect(err).ToNot(HaveOccurred())
 
 			fetchedInstance, err := state.Instance("instance-id")
@@ -71,7 +72,7 @@ var _ = Describe("State", func() {
 
 		It("updates the capacity", func() {
 			capacityBefore := state.Capacity
-			err := state.AddInstance("instance-id", config.Instance{})
+			err := state.AddInstance(config.Instance{ID: "instance-id"})
 			Expect(err).ToNot(HaveOccurred())
 
 			capacityNow := state.Capacity
@@ -84,7 +85,7 @@ var _ = Describe("State", func() {
 			})
 
 			It("returns an error", func() {
-				err := state.AddInstance("instance-id", config.Instance{})
+				err := state.AddInstance(config.Instance{ID: "instance-id"})
 				Expect(err).To(MatchError("Can't allocate instance, no capacity"))
 			})
 		})
@@ -95,7 +96,7 @@ var _ = Describe("State", func() {
 			})
 
 			It("returns an error", func() {
-				err := state.AddInstance("instance-id", config.Instance{})
+				err := state.AddInstance(config.Instance{ID: "instance-id"})
 				Expect(err).To(MatchError("Instance ID is taken"))
 			})
 		})
@@ -104,21 +105,23 @@ var _ = Describe("State", func() {
 	Describe("UpdateInstance", func() {
 		BeforeEach(func() {
 			instance := config.Instance{
+				ID:   "instance-id",
 				Host: "127.0.0.1",
 				Port: "11111",
 			}
 
-			err := state.AddInstance("instance-id", instance)
+			err := state.AddInstance(instance)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("updates the instance", func() {
 			newInstance := config.Instance{
+				ID:   "instance-id",
 				Host: "0.0.0.0",
 				Port: "2222",
 			}
 
-			err := state.UpdateInstance("instance-id", newInstance)
+			err := state.UpdateInstance(newInstance)
 			Expect(err).ToNot(HaveOccurred())
 
 			fetchedInstance, err := state.Instance("instance-id")
@@ -128,7 +131,7 @@ var _ = Describe("State", func() {
 
 		Context("when the instance is not found", func() {
 			It("returns an error", func() {
-				err := state.UpdateInstance("instance-id-2", config.Instance{})
+				err := state.UpdateInstance(config.Instance{ID: "instance-id-2"})
 				Expect(err).To(MatchError("Instance not found"))
 			})
 		})

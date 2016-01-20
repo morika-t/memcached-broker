@@ -30,26 +30,26 @@ func (s *State) Instance(instanceID string) (*Instance, error) {
 	return nil, errors.New("Instance not found")
 }
 
-func (s *State) AddInstance(instanceID string, instance Instance) error {
+func (s *State) AddInstance(instance Instance) error {
 	if s.Capacity == 0 {
 		return errors.New("Can't allocate instance, no capacity")
 	}
 
-	if _, exists := s.Instances[instanceID]; exists {
+	if _, exists := s.Instances[instance.ID]; exists {
 		return errors.New("Instance ID is taken")
 	}
 
 	s.Capacity--
-	s.Instances[instanceID] = instance
+	s.Instances[instance.ID] = instance
 	return nil
 }
 
-func (s *State) UpdateInstance(instanceID string, instance Instance) error {
-	if _, exists := s.Instances[instanceID]; !exists {
+func (s *State) UpdateInstance(instance Instance) error {
+	if _, exists := s.Instances[instance.ID]; !exists {
 		return errors.New("Instance not found")
 	}
 
-	s.Instances[instanceID] = instance
+	s.Instances[instance.ID] = instance
 	return nil
 }
 
