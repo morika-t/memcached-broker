@@ -62,3 +62,50 @@ func (s *State) DeleteInstance(instanceID string) error {
 	delete(s.Instances, instanceID)
 	return nil
 }
+
+func (s *State) InstanceBindingExists(instanceID, bindingID string) bool {
+	instance, err := s.Instance(instanceID)
+	if err != nil {
+		return false
+	}
+
+	for _, binding := range instance.Bindings {
+		if binding == bindingID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *State) AddInstanceBinding(instanceID, bindingID string) error {
+	instance, err := s.Instance(instanceID)
+	if err != nil {
+		return err
+	}
+
+	for _, binding := range instance.Bindings {
+		if binding == bindingID {
+			return errors.New("Binding ID is taken")
+		}
+	}
+
+	instance.Bindings = append(instance.Bindings, bindingID)
+	return s.UpdateInstance(*instance)
+}
+
+func (s *State) DeleteInstanceBinding(instanceID, bindingID string) error {
+	instance, err := s.Instance(instanceID)
+	if err != nil {
+		return err
+	}
+
+	for i, binding := range instance.Bindings {
+		if binding == bindingID {
+			instance.Bindings = append(instance.Bindings[:i], instance.Bindings[i+1:]...)
+			return s.UpdateInstance(*instance)
+		}
+	}
+
+	return errors.New("Binding not found")
+}

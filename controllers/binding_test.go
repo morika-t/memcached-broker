@@ -52,7 +52,9 @@ var _ = Describe("Binding", func() {
 			BeforeEach(func() {
 				state := config.State{
 					Instances: map[string]config.Instance{
-						"instance-1": config.Instance{},
+						"instance-1": config.Instance{
+							ID: "instance-1",
+						},
 					},
 				}
 
@@ -73,6 +75,7 @@ var _ = Describe("Binding", func() {
 				Expect(receivedState).To(Equal(config.State{
 					Instances: map[string]config.Instance{
 						"instance-1": config.Instance{
+							ID:       "instance-1",
 							Bindings: []string{"binding-1"},
 						},
 					},
@@ -134,6 +137,7 @@ var _ = Describe("Binding", func() {
 				state := config.State{
 					Instances: map[string]config.Instance{
 						"instance-1": config.Instance{
+							ID:       "instance-1",
 							Bindings: []string{"binding-1"},
 						},
 					},
@@ -156,6 +160,7 @@ var _ = Describe("Binding", func() {
 				Expect(receivedState).To(Equal(config.State{
 					Instances: map[string]config.Instance{
 						"instance-1": config.Instance{
+							ID:       "instance-1",
 							Bindings: []string{},
 						},
 					},
@@ -185,6 +190,7 @@ var _ = Describe("Binding", func() {
 					Capacity: 1,
 					Instances: map[string]config.Instance{
 						"instance-1": config.Instance{
+							ID:       "instance-1",
 							Bindings: []string{},
 						},
 					},

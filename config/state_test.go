@@ -166,4 +166,104 @@ var _ = Describe("State", func() {
 			})
 		})
 	})
+
+	Describe("InstanceBindingExists", func() {
+		Context("when the binding exists for the given instance", func() {
+			BeforeEach(func() {
+				state.Instances["instance-id"] = config.Instance{
+					Bindings: []string{"binding-1"},
+				}
+			})
+
+			It("returns true", func() {
+				Expect(state.InstanceBindingExists("instance-id", "binding-1")).To(BeTrue())
+			})
+		})
+
+		Context("when the instance doesn't exist", func() {
+			It("returns false", func() {
+				Expect(state.InstanceBindingExists("instance-id", "binding-1")).To(BeFalse())
+			})
+		})
+
+		Context("when the instance binding doesn't exist", func() {
+			BeforeEach(func() {
+				state.Instances["instance-id"] = config.Instance{}
+			})
+
+			It("returns false", func() {
+				Expect(state.InstanceBindingExists("instance-id", "binding-1")).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("AddInstanceBinding", func() {
+		BeforeEach(func() {
+			instance := config.Instance{
+				ID:       "instance-id",
+				Host:     "127.0.0.1",
+				Port:     "11111",
+				Bindings: []string{"existing-binding"},
+			}
+
+			err := state.AddInstance(instance)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("adds the binding to the instance", func() {
+			err := state.AddInstanceBinding("instance-id", "binding-1")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(state.InstanceBindingExists("instance-id", "binding-1")).To(BeTrue())
+		})
+
+		Context("when the instance doesn't exist", func() {
+			It("returns an error", func() {
+				err := state.AddInstanceBinding("instance-id-2", "binding-1")
+				Expect(err).To(MatchError("Instance not found"))
+			})
+		})
+
+		Context("when the binding id is already taken", func() {
+			It("returns an error", func() {
+				err := state.AddInstanceBinding("instance-id", "existing-binding")
+				Expect(err).To(MatchError("Binding ID is taken"))
+			})
+		})
+	})
+
+	Describe("DeleteInstanceBinding", func() {
+		BeforeEach(func() {
+			instance := config.Instance{
+				ID:       "instance-id",
+				Host:     "127.0.0.1",
+				Port:     "11111",
+				Bindings: []string{"existing-binding"},
+			}
+
+			err := state.AddInstance(instance)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("deletes the binding from the instance", func() {
+			err := state.DeleteInstanceBinding("instance-id", "existing-binding")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(state.InstanceBindingExists("instance-id", "existing-binding")).To(BeFalse())
+		})
+
+		Context("when the instance doesn't exist", func() {
+			It("returns an error", func() {
+				err := state.DeleteInstanceBinding("instance-id-2", "binding-1")
+				Expect(err).To(MatchError("Instance not found"))
+			})
+		})
+
+		Context("when the binding id doesn't exist", func() {
+			It("returns an error", func() {
+				err := state.DeleteInstanceBinding("instance-id", "binding-1")
+				Expect(err).To(MatchError("Binding not found"))
+			})
+		})
+	})
 })
