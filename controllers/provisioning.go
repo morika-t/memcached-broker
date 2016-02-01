@@ -2,30 +2,27 @@ package controllers
 
 import (
 	"github.com/raphael/goa"
+	"github.com/tscolari/cf-broker-api/common/repository"
 	"github.com/tscolari/memcached-broker/app"
-	"github.com/tscolari/memcached-broker/config"
-	"github.com/tscolari/memcached-broker/storage"
 )
 
 type Provisioning struct {
 	goa.Controller
-	storage storage.Storage
+	state repository.State
 }
 
-func NewProvisioning(storage storage.Storage) *Provisioning {
+func NewProvisioning(state repository.State) *Provisioning {
 	return &Provisioning{
-		storage: storage,
+		state: state,
 	}
 }
 
 func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
-	state := p.storage.GetState()
-
-	if state.InstanceExists(ctx.InstanceId) {
+	if p.state.InstanceExists(ctx.InstanceId) {
 		return ctx.Conflict()
 	}
 
-	instance := config.Instance{
+	instance := repository.Instance{
 		ID:             ctx.InstanceId,
 		ServiceID:      ctx.ServiceId,
 		PlanID:         ctx.PlanId,
@@ -33,21 +30,16 @@ func (p *Provisioning) Create(ctx *app.CreateProvisioningContext) error {
 		SpaceID:        ctx.SpaceId,
 	}
 
-	err := state.AddInstance(instance)
+	err := p.state.AddInstance(instance)
 	if err != nil {
 		return ctx.ServiceUnavailable()
 	}
-
-	p.storage.PutState(state)
-	p.storage.Save()
 
 	return ctx.Created()
 }
 
 func (p *Provisioning) Update(ctx *app.UpdateProvisioningContext) error {
-	state := p.storage.GetState()
-
-	instance, err := state.Instance(ctx.InstanceId)
+	instance, err := p.state.Instance(ctx.InstanceId)
 	if err != nil {
 		return ctx.NotFound()
 	}
@@ -55,27 +47,20 @@ func (p *Provisioning) Update(ctx *app.UpdateProvisioningContext) error {
 	instance.ServiceID = ctx.ServiceId
 	instance.PlanID = ctx.PlanId
 
-	state.UpdateInstance(*instance)
-	p.storage.PutState(state)
-	p.storage.Save()
+	p.state.UpdateInstance(*instance)
 
 	return ctx.OK(&app.CfbrokerDashboard{})
 }
 
 func (p *Provisioning) Delete(ctx *app.DeleteProvisioningContext) error {
-	state := p.storage.GetState()
-
-	if !state.InstanceExists(ctx.InstanceId) {
+	if !p.state.InstanceExists(ctx.InstanceId) {
 		return ctx.Gone()
 	}
 
-	err := state.DeleteInstance(ctx.InstanceId)
+	err := p.state.DeleteInstance(ctx.InstanceId)
 	if err != nil {
 		return ctx.Gone()
 	}
-
-	p.storage.PutState(state)
-	p.storage.Save()
 
 	return ctx.OK(&app.CfbrokerDashboard{})
 }

@@ -6,10 +6,10 @@ import (
 	"net/url"
 
 	"github.com/raphael/goa"
+	"github.com/tscolari/cf-broker-api/common/repository"
+	"github.com/tscolari/cf-broker-api/common/repository/fakes"
 	"github.com/tscolari/memcached-broker/app"
-	"github.com/tscolari/memcached-broker/config"
 	"github.com/tscolari/memcached-broker/controllers"
-	"github.com/tscolari/memcached-broker/storage/fakes"
 	"golang.org/x/net/context"
 
 	. "github.com/onsi/ginkgo"
@@ -18,14 +18,12 @@ import (
 
 var _ = Describe("Binding", func() {
 	var bindingController *controllers.Binding
-	var storage *fakes.FakeStorage
+	var state *fakes.FakeState
 	var goaContext *goa.Context
 	var responseWriter *httptest.ResponseRecorder
 
 	BeforeEach(func() {
-		storage = new(fakes.FakeStorage)
-		bindingController = controllers.NewBinding(storage)
-
+		state = new(fakes.FakeState)
 		gctx := context.Background()
 		req := http.Request{}
 		responseWriter = httptest.NewRecorder()
@@ -41,57 +39,44 @@ var _ = Describe("Binding", func() {
 		BeforeEach(func() {
 			var err error
 			bindingContext, err = app.NewUpdateBindingContext(goaContext)
+			Expect(err).ToNot(HaveOccurred())
+
 			bindingContext.InstanceId = "instance-1"
 			bindingContext.BindingId = "binding-1"
 			bindingContext.AppGuid = "app-guid"
+		})
 
+		JustBeforeEach(func() {
+			bindingController = controllers.NewBinding(state)
+			err := bindingController.Update(bindingContext)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("when all goes ok", func() {
+
 			BeforeEach(func() {
-				state := config.State{
-					Instances: map[string]config.Instance{
-						"instance-1": config.Instance{
-							ID: "instance-1",
-						},
-					},
+				instance := repository.Instance{
+					ID: "instance-1",
 				}
 
-				storage.GetStateReturns(state)
-				err := bindingController.Update(bindingContext)
-				Expect(err).ToNot(HaveOccurred())
+				state.InstanceExistsReturns(true)
+				state.InstanceBindingExistsReturns(false)
+				state.InstanceReturns(&instance, nil)
 			})
 
 			It("responds with 201", func() {
 				Expect(goaContext.ResponseStatus()).To(Equal(201))
 			})
 
-			It("updates the state file", func() {
-				Expect(storage.PutStateCallCount()).To(Equal(1))
-				Expect(storage.SaveCallCount()).To(Equal(1))
-
-				receivedState := storage.PutStateArgsForCall(0)
-				Expect(receivedState).To(Equal(config.State{
-					Instances: map[string]config.Instance{
-						"instance-1": config.Instance{
-							ID:       "instance-1",
-							Bindings: []string{"binding-1"},
-						},
-					},
-				}))
+			It("updates the state", func() {
+				instanceID, bindingID := state.AddInstanceBindingArgsForCall(0)
+				Expect(instanceID).To(Equal("instance-1"))
+				Expect(bindingID).To(Equal("binding-1"))
 			})
 		})
 
 		Context("when the instance doesn't exist", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Instances: map[string]config.Instance{},
-				}
-
-				storage.GetStateReturns(state)
-				err := bindingController.Update(bindingContext)
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("responds with 404", func() {
@@ -101,17 +86,8 @@ var _ = Describe("Binding", func() {
 
 		Context("when the binding id already exists", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Instances: map[string]config.Instance{
-						"instance-1": config.Instance{
-							Bindings: []string{"binding-1"},
-						},
-					},
-				}
-
-				storage.GetStateReturns(state)
-				err := bindingController.Update(bindingContext)
-				Expect(err).ToNot(HaveOccurred())
+				state.InstanceExistsReturns(true)
+				state.InstanceBindingExistsReturns(true)
 			})
 
 			It("responds with 409", func() {
@@ -126,57 +102,44 @@ var _ = Describe("Binding", func() {
 		BeforeEach(func() {
 			var err error
 			bindingContext, err = app.NewDeleteBindingContext(goaContext)
+			Expect(err).ToNot(HaveOccurred())
+
 			bindingContext.InstanceId = "instance-1"
 			bindingContext.BindingId = "binding-1"
+		})
 
+		JustBeforeEach(func() {
+			bindingController = controllers.NewBinding(state)
+			err := bindingController.Delete(bindingContext)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("when all goes ok", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Instances: map[string]config.Instance{
-						"instance-1": config.Instance{
-							ID:       "instance-1",
-							Bindings: []string{"binding-1"},
-						},
-					},
+				instance := repository.Instance{
+					ID:       "instance-1",
+					Bindings: []string{"binding-1"},
 				}
 
-				storage.GetStateReturns(state)
-				err := bindingController.Delete(bindingContext)
-				Expect(err).ToNot(HaveOccurred())
+				state.InstanceExistsReturns(true)
+				state.InstanceBindingExistsReturns(true)
+				state.InstanceReturns(&instance, nil)
 			})
 
 			It("responds with 200", func() {
 				Expect(goaContext.ResponseStatus()).To(Equal(200))
 			})
 
-			It("deletes the instance from the state file", func() {
-				Expect(storage.PutStateCallCount()).To(Equal(1))
-				Expect(storage.SaveCallCount()).To(Equal(1))
-
-				receivedState := storage.PutStateArgsForCall(0)
-				Expect(receivedState).To(Equal(config.State{
-					Instances: map[string]config.Instance{
-						"instance-1": config.Instance{
-							ID:       "instance-1",
-							Bindings: []string{},
-						},
-					},
-				}))
+			It("sends the delete message to the state", func() {
+				instanceID, bindingID := state.DeleteInstanceBindingArgsForCall(0)
+				Expect(instanceID).To(Equal("instance-1"))
+				Expect(bindingID).To(Equal("binding-1"))
 			})
 		})
 
 		Context("when the instance doesn't exist", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Instances: map[string]config.Instance{},
-				}
-
-				storage.GetStateReturns(state)
-				err := bindingController.Delete(bindingContext)
-				Expect(err).ToNot(HaveOccurred())
+				state.InstanceExistsReturns(false)
 			})
 
 			It("responds with 410", func() {
@@ -186,19 +149,8 @@ var _ = Describe("Binding", func() {
 
 		Context("when the binding doesn't exist", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity: 1,
-					Instances: map[string]config.Instance{
-						"instance-1": config.Instance{
-							ID:       "instance-1",
-							Bindings: []string{},
-						},
-					},
-				}
-
-				storage.GetStateReturns(state)
-				err := bindingController.Delete(bindingContext)
-				Expect(err).ToNot(HaveOccurred())
+				state.InstanceExistsReturns(true)
+				state.InstanceBindingExistsReturns(false)
 			})
 
 			It("responds with 410", func() {

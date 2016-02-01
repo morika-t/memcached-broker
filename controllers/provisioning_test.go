@@ -1,15 +1,16 @@
 package controllers_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 
 	"github.com/raphael/goa"
+	"github.com/tscolari/cf-broker-api/common/repository"
+	"github.com/tscolari/cf-broker-api/common/repository/fakes"
 	"github.com/tscolari/memcached-broker/app"
-	"github.com/tscolari/memcached-broker/config"
 	"github.com/tscolari/memcached-broker/controllers"
-	"github.com/tscolari/memcached-broker/storage/fakes"
 	"golang.org/x/net/context"
 
 	. "github.com/onsi/ginkgo"
@@ -18,13 +19,13 @@ import (
 
 var _ = Describe("Provisioning", func() {
 	var provisioningController *controllers.Provisioning
-	var storage *fakes.FakeStorage
 	var goaContext *goa.Context
 	var responseWriter *httptest.ResponseRecorder
+	var state *fakes.FakeState
 
 	BeforeEach(func() {
-		storage = new(fakes.FakeStorage)
-		provisioningController = controllers.NewProvisioning(storage)
+		state = new(fakes.FakeState)
+		provisioningController = controllers.NewProvisioning(state)
 
 		gctx := context.Background()
 		req := http.Request{}
@@ -52,12 +53,6 @@ var _ = Describe("Provisioning", func() {
 
 		Context("when all goes ok", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity:  1,
-					Instances: map[string]config.Instance{},
-				}
-
-				storage.GetStateReturns(state)
 				err := provisioningController.Create(provisioningContext)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -66,36 +61,20 @@ var _ = Describe("Provisioning", func() {
 				Expect(goaContext.ResponseStatus()).To(Equal(201))
 			})
 
-			It("updates the state file", func() {
-				Expect(storage.PutStateCallCount()).To(Equal(1))
-				Expect(storage.SaveCallCount()).To(Equal(1))
-
-				receivedState := storage.PutStateArgsForCall(0)
-				Expect(receivedState).To(Equal(config.State{
-					Capacity: 0,
-					Instances: map[string]config.Instance{
-						"some-instance-id": config.Instance{
-							ID:             "some-instance-id",
-							ServiceID:      "service-1",
-							PlanID:         "plan-1",
-							OrganizationID: "org-1",
-							SpaceID:        "space-1",
-						},
-					},
-				}))
+			It("sends the correct message to the state", func() {
+				recordedInstance := state.AddInstanceArgsForCall(0)
+				Expect(recordedInstance.ID).To(Equal("some-instance-id"))
+				Expect(recordedInstance.OrganizationID).To(Equal("org-1"))
+				Expect(recordedInstance.SpaceID).To(Equal("space-1"))
+				Expect(recordedInstance.ServiceID).To(Equal("service-1"))
+				Expect(recordedInstance.PlanID).To(Equal("plan-1"))
 			})
 		})
 
 		Context("when the instance id already exists", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity: 1,
-					Instances: map[string]config.Instance{
-						"some-instance-id": config.Instance{},
-					},
-				}
+				state.InstanceExistsReturns(true)
 
-				storage.GetStateReturns(state)
 				err := provisioningController.Create(provisioningContext)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -107,11 +86,7 @@ var _ = Describe("Provisioning", func() {
 
 		Context("when there's no capacity", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity: 0,
-				}
-
-				storage.GetStateReturns(state)
+				state.AddInstanceReturns(errors.New("Failed"))
 				err := provisioningController.Create(provisioningContext)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -135,20 +110,16 @@ var _ = Describe("Provisioning", func() {
 
 		Context("when all goes ok", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity: 0,
-					Instances: map[string]config.Instance{
-						"some-instance-id": config.Instance{
-							ID:             "some-instance-id",
-							ServiceID:      "service-1",
-							PlanID:         "plan-1",
-							OrganizationID: "org-1",
-							SpaceID:        "space-1",
-						},
-					},
+				instance := repository.Instance{
+					ID:             "some-instance-id",
+					ServiceID:      "service-1",
+					PlanID:         "plan-1",
+					OrganizationID: "org-1",
+					SpaceID:        "space-1",
 				}
 
-				storage.GetStateReturns(state)
+				state.InstanceReturns(&instance, nil)
+
 				provisioningContext.ServiceId = "service-2"
 				provisioningContext.PlanId = "plan-2"
 				err := provisioningController.Update(provisioningContext)
@@ -159,34 +130,19 @@ var _ = Describe("Provisioning", func() {
 				Expect(goaContext.ResponseStatus()).To(Equal(200))
 			})
 
-			It("updates the state file with correct information", func() {
-				Expect(storage.PutStateCallCount()).To(Equal(1))
-				Expect(storage.SaveCallCount()).To(Equal(1))
-
-				receivedState := storage.PutStateArgsForCall(0)
-				Expect(receivedState).To(Equal(config.State{
-					Capacity: 0,
-					Instances: map[string]config.Instance{
-						"some-instance-id": config.Instance{
-							ID:             "some-instance-id",
-							ServiceID:      "service-2",
-							PlanID:         "plan-2",
-							OrganizationID: "org-1",
-							SpaceID:        "space-1",
-						},
-					},
-				}))
+			It("sends the correct message to the state", func() {
+				recordedInstance := state.UpdateInstanceArgsForCall(0)
+				Expect(recordedInstance.ID).To(Equal("some-instance-id"))
+				Expect(recordedInstance.OrganizationID).To(Equal("org-1"))
+				Expect(recordedInstance.SpaceID).To(Equal("space-1"))
+				Expect(recordedInstance.ServiceID).To(Equal("service-2"))
+				Expect(recordedInstance.PlanID).To(Equal("plan-2"))
 			})
 		})
 
 		Context("when the instance doesn't exist", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity:  1,
-					Instances: map[string]config.Instance{},
-				}
-
-				storage.GetStateReturns(state)
+				state.InstanceReturns(nil, errors.New("Not here!"))
 				err := provisioningController.Update(provisioningContext)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -210,14 +166,8 @@ var _ = Describe("Provisioning", func() {
 
 		Context("when all goes ok", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity: 0,
-					Instances: map[string]config.Instance{
-						"some-instance-id": config.Instance{},
-					},
-				}
+				state.InstanceExistsReturns(true)
 
-				storage.GetStateReturns(state)
 				err := provisioningController.Delete(provisioningContext)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -226,26 +176,14 @@ var _ = Describe("Provisioning", func() {
 				Expect(goaContext.ResponseStatus()).To(Equal(200))
 			})
 
-			It("deletes the instance from the state file", func() {
-				Expect(storage.PutStateCallCount()).To(Equal(1))
-				Expect(storage.SaveCallCount()).To(Equal(1))
-
-				receivedState := storage.PutStateArgsForCall(0)
-				Expect(receivedState).To(Equal(config.State{
-					Capacity:  1,
-					Instances: map[string]config.Instance{},
-				}))
+			It("sends the correct message to the state", func() {
+				instanceID := state.DeleteInstanceArgsForCall(0)
+				Expect(instanceID).To(Equal("some-instance-id"))
 			})
 		})
 
 		Context("when the instance doesn't exist", func() {
 			BeforeEach(func() {
-				state := config.State{
-					Capacity:  1,
-					Instances: map[string]config.Instance{},
-				}
-
-				storage.GetStateReturns(state)
 				err := provisioningController.Delete(provisioningContext)
 				Expect(err).ToNot(HaveOccurred())
 			})
